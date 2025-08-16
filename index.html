@@ -55,19 +55,21 @@ const startBtn = document.getElementById("startBtn");
 const restartBtn = document.getElementById("restartBtn");
 const menu = document.getElementById("menu");
 
-let car, obstacles, collectibles, keys, score, lives, gameOver, obstacleTimer, collectibleTimer;
+let car, obstacles, collectibles, effects, scorePopups, keys, score, lives, gameOver, obstacleTimer, collectibleTimer;
 
 // Initialize game
 function init() {
   car = {
-    x: canvas.width/2 - 20,
-    y: canvas.height - 100,
+    x: canvas.width/2 - 25,
+    y: canvas.height - 120,
     width: 50,
     height: 80,
     speed: 6
   };
   obstacles = [];
   collectibles = [];
+  effects = [];
+  scorePopups = [];
   keys = {};
   score = 0;
   lives = 3;
@@ -87,9 +89,9 @@ function createObstacle() {
   obstacles.push({x, y: -80, size: 50, emoji});
 }
 
-// Create collectibles (coins 🪙, diamonds 💎, hearts ❤️)
+// Create collectibles
 function createCollectible() {
-  let types = ["🪙", "💎", "❤️"];
+  let types = ["💵", "💎", "🎁", "🌸", "⭐", "❤️"];
   let emoji = types[Math.floor(Math.random() * types.length)];
   let x = Math.random() * (canvas.width - 40);
   collectibles.push({x, y: -50, size: 40, emoji});
@@ -113,6 +115,7 @@ function update() {
       car.y + car.height > o.y
     ) {
       lives--;
+      effects.push({x: car.x, y: car.y, type:"boom", life:20}); // 💥 effect
       o.y = canvas.height + 100; // remove after collision
       if (lives <= 0) gameOver = true;
     }
@@ -127,18 +130,66 @@ function update() {
       car.y < c.y + c.size &&
       car.y + car.height > c.y
     ) {
-      if (c.emoji === "🪙") score += 10;
-      if (c.emoji === "💎") score += 30;
-      if (c.emoji === "❤️") lives++;
+      let gained = 0;
+      if (c.emoji === "💵") gained = 10;
+      if (c.emoji === "💎") gained = 30;
+      if (c.emoji === "🎁") gained = 20;
+      if (c.emoji === "🌸") gained = 15;
+      if (c.emoji === "⭐") gained = 25;
+      if (c.emoji === "❤️" && lives < 3) {
+        lives++;
+      } else if (c.emoji !== "❤️") {
+        score += gained;
+        scorePopups.push({
+          x: car.x + car.width / 2 - 10,
+          y: car.y - 10,
+          text: "+" + gained,
+          life: 40,
+          opacity: 1
+        });
+      }
+
+      effects.push({x: car.x, y: car.y, type:"sparkle", life:20}); // ✨ effect
       c.y = canvas.height + 100; // remove after collection
     }
   }
+
+  // Update effects
+  for (let e of effects) e.life--;
+  effects = effects.filter(e => e.life > 0);
+
+  // Update score popups (float up + fade)
+  for (let s of scorePopups) {
+    s.y -= 1; // float upward
+    s.life--;
+    s.opacity = s.life / 40; // fade out (1 → 0)
+  }
+  scorePopups = scorePopups.filter(s => s.life > 0);
 
   // Clean up off-screen
   obstacles = obstacles.filter(o => o.y < canvas.height);
   collectibles = collectibles.filter(c => c.y < canvas.height);
 
   score++;
+}
+
+// Draw car (top-down)
+function drawCar() {
+  // Body
+  ctx.fillStyle = "red";
+  ctx.fillRect(car.x, car.y, car.width, car.height);
+
+  // Windows
+  ctx.fillStyle = "lightblue";
+  ctx.fillRect(car.x + 10, car.y + 10, car.width - 20, 20);
+  ctx.fillRect(car.x + 10, car.y + 50, car.width - 20, 20);
+
+  // Wheels
+  ctx.fillStyle = "black";
+  ctx.fillRect(car.x - 8, car.y + 10, 8, 20);
+  ctx.fillRect(car.x - 8, car.y + 50, 8, 20);
+  ctx.fillRect(car.x + car.width, car.y + 10, 8, 20);
+  ctx.fillRect(car.x + car.width, car.y + 50, 8, 20);
 }
 
 // Draw everything
@@ -159,20 +210,35 @@ function draw() {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Draw car (emoji 🚗)
-  ctx.font = "48px Arial";
-  ctx.fillText("🚗", car.x, car.y);
+  // Car
+  drawCar();
 
-  // Draw obstacles
+  // Obstacles
   for (let o of obstacles) {
     ctx.font = o.size + "px Arial";
     ctx.fillText(o.emoji, o.x, o.y);
   }
 
-  // Draw collectibles
+  // Collectibles
   for (let c of collectibles) {
     ctx.font = c.size + "px Arial";
     ctx.fillText(c.emoji, c.x, c.y);
+  }
+
+  // Effects
+  for (let e of effects) {
+    ctx.font = "40px Arial";
+    if (e.type === "boom") ctx.fillText("💥", e.x, e.y);
+    if (e.type === "sparkle") ctx.fillText("✨", e.x, e.y);
+  }
+
+  // Score popups
+  for (let s of scorePopups) {
+    ctx.globalAlpha = s.opacity;
+    ctx.fillStyle = "yellow";
+    ctx.font = "20px Arial";
+    ctx.fillText(s.text, s.x, s.y);
+    ctx.globalAlpha = 1; // reset alpha
   }
 
   // Score & lives
@@ -199,7 +265,7 @@ function gameLoop() {
     createObstacle();
     obstacleTimer = 0;
   }
-  if (collectibleTimer > 150) {
+  if (collectibleTimer > 130) {
     createCollectible();
     collectibleTimer = 0;
   }

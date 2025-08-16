@@ -14,11 +14,14 @@
       flex-direction: column;
       color: white;
       font-family: Arial, sans-serif;
+      overflow: hidden;
     }
     #gameCanvas {
       background: #555;
       border: 2px solid white;
-      display: none; /* hidden until Start */
+      display: none;
+      max-width: 100%;
+      height: auto;
     }
     #menu {
       text-align: center;
@@ -38,18 +41,17 @@
     }
     /* Phone controls */
     #controls {
-      display: none; /* hidden until game starts */
+      display: none;
       width: 100%;
-      max-width: 400px;
-      display: flex;
+      max-width: 450px;
       justify-content: space-between;
       margin-top: 10px;
     }
     .ctrl-btn {
       flex: 1;
       margin: 5px;
-      padding: 20px;
-      font-size: 30px;
+      padding: 30px; /* bigger on phone */
+      font-size: 40px;
       border-radius: 10px;
       background: #444;
       color: white;
@@ -57,6 +59,13 @@
     }
     .ctrl-btn:active {
       background: #0a84ff;
+    }
+
+    @media (max-width: 600px) {
+      #gameCanvas {
+        width: 95vw; /* enlarge on phone */
+        height: auto;
+      }
     }
   </style>
 </head>
@@ -87,6 +96,10 @@ const leftBtn = document.getElementById("leftBtn");
 const rightBtn = document.getElementById("rightBtn");
 
 let car, obstacles, collectibles, effects, scorePopups, keys, score, lives, gameOver, obstacleTimer, collectibleTimer;
+let lineOffset = 0; // for moving road lines
+
+// Detect touch device
+const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
 // Initialize game
 function init() {
@@ -107,6 +120,7 @@ function init() {
   gameOver = false;
   obstacleTimer = 0;
   collectibleTimer = 0;
+  lineOffset = 0;
 }
 
 document.addEventListener("keydown", e => keys[e.key] = true);
@@ -114,11 +128,12 @@ document.addEventListener("keyup", e => keys[e.key] = false);
 
 // Touch control support
 let moveLeft = false, moveRight = false;
-
-leftBtn.addEventListener("touchstart", () => moveLeft = true);
-leftBtn.addEventListener("touchend", () => moveLeft = false);
-rightBtn.addEventListener("touchstart", () => moveRight = true);
-rightBtn.addEventListener("touchend", () => moveRight = false);
+if (isTouch) {
+  leftBtn.addEventListener("touchstart", e => { e.preventDefault(); moveLeft = true; });
+  leftBtn.addEventListener("touchend", () => moveLeft = false);
+  rightBtn.addEventListener("touchstart", e => { e.preventDefault(); moveRight = true; });
+  rightBtn.addEventListener("touchend", () => moveRight = false);
+}
 
 // Create obstacles (bombs 💣 and boxes 📦)
 function createObstacle() {
@@ -140,13 +155,15 @@ function createCollectible() {
 function update() {
   if (gameOver) return;
 
-  // Move car with keyboard
+  // Move car
   if (keys["ArrowLeft"] && car.x > 0) car.x -= car.speed;
   if (keys["ArrowRight"] && car.x + car.width < canvas.width) car.x += car.speed;
-
-  // Move car with touch buttons
   if (moveLeft && car.x > 0) car.x -= car.speed;
   if (moveRight && car.x + car.width < canvas.width) car.x += car.speed;
+
+  // Move road line
+  lineOffset += 5;
+  if (lineOffset > 40) lineOffset = 0;
 
   // Move obstacles
   for (let o of obstacles) {
@@ -158,8 +175,8 @@ function update() {
       car.y + car.height > o.y
     ) {
       lives--;
-      effects.push({x: car.x, y: car.y, type:"boom", life:20}); // 💥 effect
-      o.y = canvas.height + 100; // remove after collision
+      effects.push({x: car.x, y: car.y, type:"boom", life:20});
+      o.y = canvas.height + 100;
       if (lives <= 0) gameOver = true;
     }
   }
@@ -191,8 +208,8 @@ function update() {
           opacity: 1
         });
       }
-      effects.push({x: car.x, y: car.y, type:"sparkle", life:20}); // ✨ effect
-      c.y = canvas.height + 100; // remove after collection
+      effects.push({x: car.x, y: car.y, type:"sparkle", life:20});
+      c.y = canvas.height + 100;
     }
   }
 
@@ -200,22 +217,22 @@ function update() {
   for (let e of effects) e.life--;
   effects = effects.filter(e => e.life > 0);
 
-  // Update score popups (float up + fade)
+  // Update score popups
   for (let s of scorePopups) {
-    s.y -= 1; // float upward
+    s.y -= 1;
     s.life--;
-    s.opacity = s.life / 40; // fade out
+    s.opacity = s.life / 40;
   }
   scorePopups = scorePopups.filter(s => s.life > 0);
 
-  // Clean up off-screen
+  // Clean up
   obstacles = obstacles.filter(o => o.y < canvas.height);
   collectibles = collectibles.filter(c => c.y < canvas.height);
 
   score++;
 }
 
-// Draw car (top-down)
+// Draw car
 function drawCar() {
   ctx.fillStyle = "red";
   ctx.fillRect(car.x, car.y, car.width, car.height);
@@ -236,86 +253,11 @@ function draw() {
   ctx.fillStyle = "#222";
   ctx.fillRect(50, 0, canvas.width - 100, canvas.height);
 
+  // Moving dashed line
   ctx.strokeStyle = "white";
   ctx.lineWidth = 4;
   ctx.setLineDash([20, 20]);
+  ctx.lineDashOffset = -lineOffset;
   ctx.beginPath();
   ctx.moveTo(canvas.width/2, 0);
-  ctx.lineTo(canvas.width/2, canvas.height);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  drawCar();
-
-  for (let o of obstacles) {
-    ctx.font = o.size + "px Arial";
-    ctx.fillText(o.emoji, o.x, o.y);
-  }
-  for (let c of collectibles) {
-    ctx.font = c.size + "px Arial";
-    ctx.fillText(c.emoji, c.x, c.y);
-  }
-
-  for (let e of effects) {
-    ctx.font = "40px Arial";
-    if (e.type === "boom") ctx.fillText("💥", e.x, e.y);
-    if (e.type === "sparkle") ctx.fillText("✨", e.x, e.y);
-  }
-
-  for (let s of scorePopups) {
-    ctx.globalAlpha = s.opacity;
-    ctx.fillStyle = "yellow";
-    ctx.font = "20px Arial";
-    ctx.fillText(s.text, s.x, s.y);
-    ctx.globalAlpha = 1;
-  }
-
-  ctx.fillStyle = "white";
-  ctx.font = "20px Arial";
-  ctx.fillText("Score: " + score, 10, 25);
-  ctx.fillText("Lives: " + "❤️".repeat(lives), 10, 50);
-
-  if (gameOver) {
-    ctx.fillStyle = "yellow";
-    ctx.font = "40px Arial";
-    ctx.fillText("GAME OVER", 80, canvas.height/2);
-    restartBtn.style.display = "inline-block";
-  }
-}
-
-// Game loop
-function gameLoop() {
-  update();
-  draw();
-  obstacleTimer++;
-  collectibleTimer++;
-  if (obstacleTimer > 90) {
-    createObstacle();
-    obstacleTimer = 0;
-  }
-  if (collectibleTimer > 130) {
-    createCollectible();
-    collectibleTimer = 0;
-  }
-  if (!gameOver) requestAnimationFrame(gameLoop);
-}
-
-// Start game
-startBtn.addEventListener("click", () => {
-  menu.style.display = "none";
-  canvas.style.display = "block";
-  restartBtn.style.display = "none";
-  controls.style.display = "flex";
-  init();
-  gameLoop();
-});
-
-// Restart game
-restartBtn.addEventListener("click", () => {
-  restartBtn.style.display = "none";
-  init();
-  gameLoop();
-});
-</script>
-</body>
-</html>
+  ctx.lineTo(canva

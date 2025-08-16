@@ -260,4 +260,82 @@ function draw() {
   ctx.lineDashOffset = -lineOffset;
   ctx.beginPath();
   ctx.moveTo(canvas.width/2, 0);
-  ctx.lineTo(canva
+  ctx.lineTo(canvas.width/2, canvas.height);
+  ctx.stroke();
+  ctx.setLineDash([]); // reset safely
+  ctx.beginPath();     // <— important to avoid breaking future drawings
+
+  drawCar();
+
+  for (let o of obstacles) {
+    ctx.font = o.size + "px Arial";
+    ctx.fillText(o.emoji, o.x, o.y);
+  }
+  for (let c of collectibles) {
+    ctx.font = c.size + "px Arial";
+    ctx.fillText(c.emoji, c.x, c.y);
+  }
+
+  for (let e of effects) {
+    ctx.font = "40px Arial";
+    if (e.type === "boom") ctx.fillText("💥", e.x, e.y);
+    if (e.type === "sparkle") ctx.fillText("✨", e.x, e.y);
+  }
+
+  for (let s of scorePopups) {
+    ctx.globalAlpha = s.opacity;
+    ctx.fillStyle = "yellow";
+    ctx.font = "20px Arial";
+    ctx.fillText(s.text, s.x, s.y);
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.fillStyle = "white";
+  ctx.font = "20px Arial";
+  ctx.fillText("Score: " + score, 10, 25);
+  ctx.fillText("Lives: " + "❤️".repeat(lives), 10, 50);
+
+  if (gameOver) {
+    ctx.fillStyle = "yellow";
+    ctx.font = "40px Arial";
+    ctx.fillText("GAME OVER", 80, canvas.height/2);
+    restartBtn.style.display = "inline-block";
+  }
+}
+
+// Game loop
+function gameLoop() {
+  update();
+  draw();
+  obstacleTimer++;
+  collectibleTimer++;
+  if (obstacleTimer > 90) {
+    createObstacle();
+    obstacleTimer = 0;
+  }
+  if (collectibleTimer > 130) {
+    createCollectible();
+    collectibleTimer = 0;
+  }
+  if (!gameOver) requestAnimationFrame(gameLoop);
+}
+
+// Start game
+startBtn.addEventListener("click", () => {
+  menu.style.display = "none";
+  canvas.style.display = "block";
+  restartBtn.style.display = "none";
+  if (isTouch) controls.style.display = "flex"; // only on phone
+  init();
+  gameLoop();
+});
+
+// Restart game
+restartBtn.addEventListener("click", () => {
+  restartBtn.style.display = "none";
+  init();
+  gameLoop();
+});
+</script>
+</body>
+</html>

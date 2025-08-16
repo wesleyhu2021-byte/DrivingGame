@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Car Road Game</title>
+  <title>Fancy Car Road Game</title>
   <style>
     body {
       margin: 0;
@@ -11,46 +11,91 @@
       align-items: center;
       background: #333;
       height: 100vh;
+      flex-direction: column;
+      color: white;
+      font-family: Arial, sans-serif;
     }
-    canvas {
+    #gameCanvas {
       background: #555;
-      display: block;
       border: 2px solid white;
+      display: none; /* hidden until Start */
+    }
+    #menu {
+      text-align: center;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 18px;
+      margin: 10px;
+      border: none;
+      border-radius: 10px;
+      background: #0a84ff;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0060df;
     }
   </style>
 </head>
 <body>
+
+<div id="menu">
+  <h1>🚗 Road Racer</h1>
+  <button id="startBtn">Start Game</button>
+</div>
+
 <canvas id="gameCanvas" width="400" height="600"></canvas>
+<button id="restartBtn" style="display:none;">Restart</button>
 
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
+const startBtn = document.getElementById("startBtn");
+const restartBtn = document.getElementById("restartBtn");
+const menu = document.getElementById("menu");
 
-let car = {
-  x: canvas.width/2 - 20,
-  y: canvas.height - 100,
-  width: 40,
-  height: 80,
-  speed: 5
-};
+let car, obstacles, collectibles, keys, score, lives, gameOver, obstacleTimer, collectibleTimer;
 
-let obstacles = [];
-let keys = {};
-let score = 0;
-let gameOver = false;
+// Initialize game
+function init() {
+  car = {
+    x: canvas.width/2 - 20,
+    y: canvas.height - 100,
+    width: 50,
+    height: 80,
+    speed: 6
+  };
+  obstacles = [];
+  collectibles = [];
+  keys = {};
+  score = 0;
+  lives = 3;
+  gameOver = false;
+  obstacleTimer = 0;
+  collectibleTimer = 0;
+}
 
-// Handle keyboard input
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
-// Create new obstacles
+// Create obstacles (bombs 💣 and boxes 📦)
 function createObstacle() {
-  let width = Math.random() * 80 + 40;
-  let x = Math.random() * (canvas.width - width);
-  obstacles.push({x, y: -80, width, height: 40});
+  let types = ["💣", "📦"];
+  let emoji = types[Math.floor(Math.random() * types.length)];
+  let x = Math.random() * (canvas.width - 60);
+  obstacles.push({x, y: -80, size: 50, emoji});
 }
 
-// Update game
+// Create collectibles (coins 🪙, diamonds 💎, hearts ❤️)
+function createCollectible() {
+  let types = ["🪙", "💎", "❤️"];
+  let emoji = types[Math.floor(Math.random() * types.length)];
+  let x = Math.random() * (canvas.width - 40);
+  collectibles.push({x, y: -50, size: 40, emoji});
+}
+
+// Update game state
 function update() {
   if (gameOver) return;
 
@@ -60,20 +105,39 @@ function update() {
 
   // Move obstacles
   for (let o of obstacles) {
-    o.y += 4;
-    // Collision detection
+    o.y += 5;
     if (
-      car.x < o.x + o.width &&
+      car.x < o.x + o.size &&
       car.x + car.width > o.x &&
-      car.y < o.y + o.height &&
+      car.y < o.y + o.size &&
       car.y + car.height > o.y
     ) {
-      gameOver = true;
+      lives--;
+      o.y = canvas.height + 100; // remove after collision
+      if (lives <= 0) gameOver = true;
     }
   }
 
-  // Remove passed obstacles & increase score
+  // Move collectibles
+  for (let c of collectibles) {
+    c.y += 4;
+    if (
+      car.x < c.x + c.size &&
+      car.x + car.width > c.x &&
+      car.y < c.y + c.size &&
+      car.y + car.height > c.y
+    ) {
+      if (c.emoji === "🪙") score += 10;
+      if (c.emoji === "💎") score += 30;
+      if (c.emoji === "❤️") lives++;
+      c.y = canvas.height + 100; // remove after collection
+    }
+  }
+
+  // Clean up off-screen
   obstacles = obstacles.filter(o => o.y < canvas.height);
+  collectibles = collectibles.filter(c => c.y < canvas.height);
+
   score++;
 }
 
@@ -93,46 +157,70 @@ function draw() {
   ctx.moveTo(canvas.width/2, 0);
   ctx.lineTo(canvas.width/2, canvas.height);
   ctx.stroke();
-
   ctx.setLineDash([]);
 
-  // Car
-  ctx.fillStyle = "red";
-  ctx.fillRect(car.x, car.y, car.width, car.height);
+  // Draw car (emoji 🚗)
+  ctx.font = "48px Arial";
+  ctx.fillText("🚗", car.x, car.y);
 
-  // Obstacles
-  ctx.fillStyle = "blue";
+  // Draw obstacles
   for (let o of obstacles) {
-    ctx.fillRect(o.x, o.y, o.width, o.height);
+    ctx.font = o.size + "px Arial";
+    ctx.fillText(o.emoji, o.x, o.y);
   }
 
-  // Score
+  // Draw collectibles
+  for (let c of collectibles) {
+    ctx.font = c.size + "px Arial";
+    ctx.fillText(c.emoji, c.x, c.y);
+  }
+
+  // Score & lives
   ctx.fillStyle = "white";
   ctx.font = "20px Arial";
   ctx.fillText("Score: " + score, 10, 25);
+  ctx.fillText("Lives: " + "❤️".repeat(lives), 10, 50);
 
-  // Game Over
   if (gameOver) {
     ctx.fillStyle = "yellow";
     ctx.font = "40px Arial";
     ctx.fillText("GAME OVER", 80, canvas.height/2);
+    restartBtn.style.display = "inline-block";
   }
 }
 
 // Game loop
-let obstacleTimer = 0;
 function gameLoop() {
   update();
   draw();
   obstacleTimer++;
-  if (obstacleTimer > 80) {
+  collectibleTimer++;
+  if (obstacleTimer > 90) {
     createObstacle();
     obstacleTimer = 0;
   }
-  requestAnimationFrame(gameLoop);
+  if (collectibleTimer > 150) {
+    createCollectible();
+    collectibleTimer = 0;
+  }
+  if (!gameOver) requestAnimationFrame(gameLoop);
 }
 
-gameLoop();
+// Start game
+startBtn.addEventListener("click", () => {
+  menu.style.display = "none";
+  canvas.style.display = "block";
+  restartBtn.style.display = "none";
+  init();
+  gameLoop();
+});
+
+// Restart game
+restartBtn.addEventListener("click", () => {
+  restartBtn.style.display = "none";
+  init();
+  gameLoop();
+});
 </script>
 </body>
 </html>

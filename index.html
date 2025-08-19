@@ -4,25 +4,20 @@
   <meta charset="UTF-8">
   <title>Fancy Car Road Game</title>
   <style>
-    body {
-      margin: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: #333;
-      height: 100vh;
-      flex-direction: column;
-      color: white;
-      font-family: Arial, sans-serif;
-      overflow: hidden;
-    }
-    #gameCanvas {
-      background: #555;
-      border: 2px solid white;
-      display: none;
-      max-width: 100%;
-      height: auto;
-    }
+  body {
+    margin: 0;
+    background: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+  }
+    canvas {
+    background: #555;
+    display: block;
+    border: 2px solid white;
+  }
     #menu {
       text-align: center;
     }
@@ -62,10 +57,14 @@
     }
 
     @media (max-width: 600px) {
-      #gameCanvas {
-        width: 95vw; /* enlarge on phone */
-        height: auto;
-      }
+      #gameCanvas {// Make canvas resize to fit window safely
+function resizeCanvas() {
+  canvas.width = Math.min(window.innerWidth, 500); // cap width so it's not too wide
+  canvas.height = window.innerHeight - 20; // leave a safe margin at top
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+}
     }
   </style>
 </head>

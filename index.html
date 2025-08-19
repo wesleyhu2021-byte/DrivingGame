@@ -351,10 +351,10 @@ function update() {
   if (gameOver) return;
 
   // 🚦 Slower difficulty curve
-  difficultyFactor = 1 + score / 2000;   // grows more slowly
+  difficultyFactor = 1 + score / 1500;   // grows more slowly
 
   // 🚗 Car speed scaling is gentler
-  car.speed = 5 * difficultyFactor;      
+  car.speed = 5.5 * difficultyFactor;      
 
   // Move car...
   if (keys["ArrowLeft"] && car.x > 0) car.x -= car.speed;

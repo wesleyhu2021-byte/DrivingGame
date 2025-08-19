@@ -339,3 +339,119 @@ restartBtn.addEventListener("click", () => {
 </script>
 </body>
 </html>
+<script>
+// ... keep everything else the same above ...
+
+let baseObstacleDelay = 120;   // start: fewer obstacles
+let baseObstacleSpeed = 3;     // start: slower obstacles
+let difficultyFactor = 1;      // increases as score rises
+
+// Update game state
+function update() {
+  if (gameOver) return;
+
+  // Increase difficulty based on score
+  difficultyFactor = 1 + score / 1000;  // grows slowly over time
+  car.speed = 6 * difficultyFactor;     // car feels faster as game progresses
+
+  // Move car
+  if (keys["ArrowLeft"] && car.x > 0) car.x -= car.speed;
+  if (keys["ArrowRight"] && car.x + car.width < canvas.width) car.x += car.speed;
+  if (moveLeft && car.x > 0) car.x -= car.speed;
+  if (moveRight && car.x + car.width < canvas.width) car.x += car.speed;
+
+  // Move road line
+  lineOffset += 5 * difficultyFactor;
+  if (lineOffset > 40) lineOffset = 0;
+
+  // Move obstacles
+  for (let o of obstacles) {
+    o.y += baseObstacleSpeed * difficultyFactor;  // faster over time
+    if (
+      car.x < o.x + o.size &&
+      car.x + car.width > o.x &&
+      car.y < o.y + o.size &&
+      car.y + car.height > o.y
+    ) {
+      lives--;
+      effects.push({x: car.x, y: car.y, type:"boom", life:20});
+      o.y = canvas.height + 100;
+      if (lives <= 0) gameOver = true;
+    }
+  }
+
+  // Move collectibles
+  for (let c of collectibles) {
+    c.y += 2 * difficultyFactor; // also slightly faster
+    if (
+      car.x < c.x + c.size &&
+      car.x + car.width > c.x &&
+      car.y < c.y + c.size &&
+      car.y + car.height > c.y
+    ) {
+      let gained = 0;
+      if (c.emoji === "💵") gained = 10;
+      if (c.emoji === "💎") gained = 30;
+      if (c.emoji === "🎁") gained = 20;
+      if (c.emoji === "🌸") gained = 15;
+      if (c.emoji === "⭐") gained = 25;
+      if (c.emoji === "❤️" && lives < 3) {
+        lives++;
+      } else if (c.emoji !== "❤️") {
+        score += gained;
+        scorePopups.push({
+          x: car.x + car.width / 2 - 10,
+          y: car.y - 10,
+          text: "+" + gained,
+          life: 40,
+          opacity: 1
+        });
+      }
+      effects.push({x: car.x, y: car.y, type:"sparkle", life:20});
+      c.y = canvas.height + 100;
+    }
+  }
+
+  // Update effects
+  for (let e of effects) e.life--;
+  effects = effects.filter(e => e.life > 0);
+
+  // Update score popups
+  for (let s of scorePopups) {
+    s.y -= 1;
+    s.life--;
+    s.opacity = s.life / 40;
+  }
+  scorePopups = scorePopups.filter(s => s.life > 0);
+
+  // Clean up
+  obstacles = obstacles.filter(o => o.y < canvas.height);
+  collectibles = collectibles.filter(c => c.y < canvas.height);
+
+  score++;
+}
+
+// Game loop
+function gameLoop() {
+  update();
+  draw();
+  obstacleTimer++;
+  collectibleTimer++;
+
+  // Dynamic obstacle creation
+  let obstacleDelay = baseObstacleDelay / difficultyFactor; 
+  if (obstacleTimer > obstacleDelay) {
+    createObstacle();
+    obstacleTimer = 0;
+  }
+
+  // Dynamic collectible creation (slower increase than obstacles)
+  let collectibleDelay = 130 / Math.sqrt(difficultyFactor);
+  if (collectibleTimer > collectibleDelay) {
+    createCollectible();
+    collectibleTimer = 0;
+  }
+
+  if (!gameOver) requestAnimationFrame(gameLoop);
+}
+</script>
